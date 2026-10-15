@@ -5,10 +5,10 @@ import { runAgent, trimHistory, type AgentSettings, type ChatMessage } from '../
 import { detectHits, quantizeHits } from '../ai/beatbox'
 import { detectNotes, quantizeNotes, SOUND_CENTER } from '../ai/pitch'
 import { listen, speechSupported } from '../ai/speech'
-import { newId } from '../core/commands'
+import { currentPattern, newId } from '../core/commands'
 import { useDaw } from '../core/store'
 import type { DrumSound, Project } from '../core/types'
-import { useAnimation } from './Toolbar'
+import { useAnimation } from '../ui/ui'
 
 interface LogEntry {
   kind: 'user' | 'ai' | 'tool' | 'error'
@@ -223,7 +223,7 @@ function VoiceCapture({ onLog }: { onLog: (e: LogEntry) => void }) {
     const existing = p.channels.find((c) => c.id === targetId)
     const notes = quantizeNotes(detected, {
       bpm: p.bpm,
-      lengthSteps: p.lengthSteps,
+      lengthSteps: currentPattern(p).lengthSteps,
       keyRoot: p.keyRoot,
       scale: p.scale,
       snapToKey: snapKey,
@@ -240,7 +240,7 @@ function VoiceCapture({ onLog }: { onLog: (e: LogEntry) => void }) {
   }
 
   function beatboxToDrums(samples: Float32Array, sampleRate: number, p: Project) {
-    const q = quantizeHits(detectHits(samples, sampleRate), p.bpm, p.lengthSteps, !withLoop)
+    const q = quantizeHits(detectHits(samples, sampleRate), p.bpm, currentPattern(p).lengthSteps, !withLoop)
     const total = q.kick.length + q.snare.length + q.hat.length
     if (!total) return onLog({ kind: 'error', text: 'No hits heard. Try louder "boom", "ka", "ts" sounds.' })
     const { run } = useDaw.getState()

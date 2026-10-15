@@ -34,11 +34,11 @@ export interface AgentHost {
   onToolCall?: (name: string, args: unknown, result: unknown, error?: string) => void
 }
 
-const MAX_ROUNDS = 10
+const MAX_ROUNDS = 16
 const ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions'
 
 const EXTRA_TOOLS = [
-  { name: 'play', description: 'Start playback of the loop.', parameters: { type: 'object', properties: {} } },
+  { name: 'play', description: 'Start playback (the current pattern in PAT mode, the whole song in SONG mode).', parameters: { type: 'object', properties: {} } },
   { name: 'stop', description: 'Stop playback.', parameters: { type: 'object', properties: {} } },
 ]
 
@@ -48,14 +48,19 @@ export const TOOLS = [...COMMANDS, ...EXTRA_TOOLS].map((c) => ({
 }))
 
 function systemPrompt(project: Project): string {
-  return `You are the built-in music producer of a DAW (like FL Studio). The user describes music in words; you build it by calling tools.
+  return `You are the built-in music producer of a DAW that works like FL Studio. The user describes music in words; you build it by calling tools.
 
-Timing: everything is in 16th-note steps. 4 steps = 1 beat, 16 steps = 1 bar. Step 0 is the downbeat of bar 1.
-Drum channels play one sound each; use set_drum_steps. Synth channels play notes; use add_notes (pitch names like "A1", "C4"; C4 = MIDI 60).
-Good registers: bass/sub A0-E2, keys/pads C3-C5, leads C4-C6.
-Stay in the project key unless asked otherwise. Fill the whole pattern length (vary the last bar for interest).
-When asked to create something, make it musical and genre-appropriate, then call play so the user hears it.
-Prefer editing existing channels over creating duplicates. Reply in the user's language, in 1-3 short sentences.
+How the DAW is organized:
+- Channels (channel rack) are instruments. Drum channels play one sound (use set_drum_steps); synth channels play notes (use add_notes; pitch names like "A1", "C4"; C4 = MIDI 60).
+- Patterns hold the notes of every channel. Note tools write to the current pattern unless you pass "pattern". Make one pattern per song section (e.g. "Intro", "Verse", "Drop") with add_pattern, or clone_pattern for variations.
+- The playlist arranges patterns into a song: add_clip(pattern, track, bar). Put each pattern on its own track. Then set_song_mode(true) to hear the whole song; set_song_mode(false) loops the current pattern.
+- Each channel is routed to its own mixer insert (see "insert" per channel; 0 = Master). Effects live on inserts: add_fx / set_fx (reverb, delay, filter, distortion, eq, compressor, chorus; all values 0-1).
+- Automation (set_automation) changes an insert/fx/channel parameter over the song, e.g. a filter sweep into a drop. It plays in SONG mode.
+
+Timing: 16th-note steps. 4 steps = 1 beat, 16 steps = 1 bar. Step 0 is the downbeat of bar 1. Playlist positions are in bars.
+Good registers: bass/sub A0-E2, keys/pads C3-C5, leads C4-C6. Stay in the project key unless asked otherwise.
+When asked to create something, make it musical and genre-appropriate, fill the pattern (vary the last bar), then call play so the user hears it.
+Prefer editing existing channels and patterns over duplicates. Reply in the user's language, in 1-3 short sentences.
 
 Current project:
 ${JSON.stringify(summarizeProject(project))}`

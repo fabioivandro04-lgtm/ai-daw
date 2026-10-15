@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { engine, useCurrentStep } from '../audio'
+import { engine, usePosition } from '../audio'
+import { currentPattern, notesOf } from '../core/commands'
 import { inScale, midiToName } from '../core/music'
 import { useDaw } from '../core/store'
 import type { Note } from '../core/types'
@@ -25,7 +26,9 @@ export function PianoRoll() {
   const project = useDaw((s) => s.project)
   const run = useDaw((s) => s.run)
   const channel = useDaw((s) => s.project.channels.find((c) => c.id === s.selectedChannelId))
-  const step = useCurrentStep()
+  const step = usePosition()?.patternStep ?? null
+  const pat = currentPattern(project)
+  const notes = channel ? notesOf(pat, channel.id) : []
   const [drag, setDrag] = useState<Drag | null>(null)
   const [lastLength, setLastLength] = useState(2)
   const scroller = useRef<HTMLDivElement>(null)
@@ -34,25 +37,23 @@ export function PianoRoll() {
   useEffect(() => {
     const el = scroller.current
     if (!el || !channel) return
-    const pitches = channel.notes.map((n) => n.pitch)
+    const pitches = notes.map((n) => n.pitch)
     const center = pitches.length ? (Math.min(...pitches) + Math.max(...pitches)) / 2 : channel.sound === 'bass' || channel.sound === 'sub' ? 40 : 60
     el.scrollTop = (HIGH - center) * ROW - el.clientHeight / 2
   }, [channel?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!channel) return <div className="empty">Select a channel to edit its notes.</div>
-  if (channel.type === 'drum')
-    return <div className="empty">"{channel.name}" is a drum channel: click its steps in the channel rack. Select a synth channel to use the piano roll.</div>
 
   const rows = HIGH - LOW + 1
-  const width = project.lengthSteps * COL
+  const width = pat.lengthSteps * COL
 
   function addAt(e: React.PointerEvent<HTMLDivElement>) {
     if (e.button !== 0 || e.target !== e.currentTarget || !channel) return
     const r = e.currentTarget.getBoundingClientRect()
     const start = Math.floor((e.clientX - r.left) / COL)
     const pitch = HIGH - Math.floor((e.clientY - r.top) / ROW)
-    if (start < 0 || start >= project.lengthSteps) return
-    run('add_notes', { channel: channel.id, notes: [{ pitch, start, length: Math.min(lastLength, project.lengthSteps - start) }] })
+    if (start < 0 || start >= pat.lengthSteps) return
+    run('add_notes', { channel: channel.id, notes: [{ pitch, start, length: Math.min(lastLength, pat.lengthSteps - start) }] })
     engine.preview(channel, pitch)
   }
 
@@ -73,7 +74,7 @@ export function PianoRoll() {
     if (drag.mode === 'resize') setDrag({ ...drag, dLen: ds })
     else if (ds !== drag.dStep || dp !== drag.dPitch) {
       if (dp !== drag.dPitch && channel) {
-        const n = channel.notes.find((x) => x.id === drag.id)
+        const n = notes.find((x) => x.id === drag.id)
         if (n) engine.preview(channel, n.pitch + dp)
       }
       setDrag({ ...drag, dStep: ds, dPitch: dp })
@@ -92,7 +93,7 @@ export function PianoRoll() {
       run('update_note', {
         channel: channel.id,
         id: n.id,
-        start: Math.max(0, Math.min(project.lengthSteps - 1, n.start + d.dStep)),
+        start: Math.max(0, Math.min(pat.lengthSteps - 1, n.start + d.dStep)),
         pitch: Math.max(LOW, Math.min(HIGH, n.pitch + d.dPitch)),
       })
     } else setLastLength(n.length)
@@ -123,7 +124,7 @@ export function PianoRoll() {
             const cls = BLACK.has(pitch % 12) ? 'black' : inScale(pitch, project.keyRoot, project.scale) ? 'scale' : ''
             return <div key={pitch} className={`pr-row ${cls}`} style={{ top: i * ROW, height: ROW }} />
           })}
-          {channel.notes.map((n) => {
+          {notes.map((n) => {
             const d = drag?.id === n.id ? drag : null
             const start = n.start + (d?.dStep ?? 0)
             const pitch = n.pitch + (d?.dPitch ?? 0)

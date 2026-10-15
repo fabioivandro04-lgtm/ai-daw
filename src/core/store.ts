@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { applyCommand, demoProject } from './commands'
+import { applyCommand, demoProject, migrateProject } from './commands'
 import type { Project } from './types'
 
 const STORAGE_KEY = 'ai-daw:project'
@@ -25,7 +25,7 @@ interface DawState {
 function loadSaved(): Project {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) return JSON.parse(raw) as Project
+    if (raw) return migrateProject(JSON.parse(raw))
   } catch {
     // Storage unavailable or corrupt; fall back to the demo.
   }
@@ -50,7 +50,7 @@ export const useDaw = create<DawState>((set, get) => ({
       past: sameGroup ? past : [...past, { project, group: opts?.group }].slice(-HISTORY_LIMIT),
       future: [],
     })
-    if (name === 'add_channel') set({ selectedChannelId: (result as { id: string }).id })
+    if (name === 'add_channel' || name === 'add_sample_channel') set({ selectedChannelId: (result as { id: string }).id })
     return result
   },
 
