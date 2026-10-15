@@ -60,11 +60,4 @@ export class MicRecorder {
     }
     return { samples, sampleRate: audio.sampleRate }
   }
-
-  cancel() {
-    this.recorder?.stop()
-    this.source?.disconnect()
-    this.stream?.getTracks().forEach((t) => t.stop())
-    this.recorder = null
-  }
 }

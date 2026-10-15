@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { applyCommand, demoProject } from '../core/commands'
 import type { Project } from '../core/types'
-import { runAgent } from './agent'
+import { runAgent, trimHistory, type ChatMessage } from './agent'
 
 function reply(message: unknown) {
   return new Response(JSON.stringify({ choices: [{ message }] }), { status: 200 })
@@ -63,5 +63,19 @@ describe('runAgent', () => {
         stop: () => {},
       }),
     ).rejects.toThrow(/401/)
+  })
+})
+
+describe('trimHistory', () => {
+  it('never starts with a tool result whose call was cut off', () => {
+    const turn = (n: number): ChatMessage[] => [
+      { role: 'user', content: `u${n}` },
+      { role: 'assistant', content: null, tool_calls: [] },
+      ...Array.from({ length: 8 }, () => ({ role: 'tool' as const, content: '{}', tool_call_id: 'x' })),
+      { role: 'assistant', content: `a${n}` },
+    ]
+    const out = trimHistory([...turn(1), ...turn(2), ...turn(3)], 30) // 33 messages, cut lands mid-turn
+    expect(out[0]).toEqual({ role: 'user', content: 'u2' })
+    expect(out).toHaveLength(22)
   })
 })

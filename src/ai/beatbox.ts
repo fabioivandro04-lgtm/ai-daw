@@ -13,7 +13,6 @@ export interface DetectedHit {
   time: number
   sound: BeatboxSound
   velocity: number
-  features: { centroid: number; low: number; high: number }
 }
 
 const MIN_GAP_S = 0.07
@@ -69,7 +68,7 @@ export function classifyHit(f: { centroid: number; low: number; high: number }):
 export function detectHits(x: Float32Array, sampleRate: number): DetectedHit[] {
   return detectOnsets(x, sampleRate).map(({ time, level }) => {
     const features = spectralFeatures(x, sampleRate, Math.floor(time * sampleRate))
-    return { time, sound: classifyHit(features), velocity: Math.min(1, 0.4 + 0.6 * level), features }
+    return { time, sound: classifyHit(features), velocity: Math.min(1, 0.4 + 0.6 * level) }
   })
 }
 

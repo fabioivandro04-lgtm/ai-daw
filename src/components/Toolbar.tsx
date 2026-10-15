@@ -44,8 +44,10 @@ export function Toolbar({ playing, onTogglePlay, onSettings }: { playing: boolea
           type="number"
           min={40}
           max={300}
-          value={project.bpm}
-          onChange={(e) => e.target.value && run('set_tempo', { bpm: Number(e.target.value) }, { group: 'bpm' })}
+          key={project.bpm}
+          defaultValue={project.bpm}
+          onBlur={(e) => e.target.value && Number(e.target.value) !== project.bpm && run('set_tempo', { bpm: Number(e.target.value) })}
+          onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
         />
       </label>
       <label className="field">

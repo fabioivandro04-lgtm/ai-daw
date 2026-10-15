@@ -121,3 +121,10 @@ export async function runAgent(
   messages.push({ role: 'assistant', content: 'Stopped after too many steps. Ask me to continue if needed.' })
   return messages
 }
+
+/** Keeps context bounded; the cut must start at a user turn or providers reject orphaned tool results. */
+export function trimHistory(messages: ChatMessage[], max = 30): ChatMessage[] {
+  const tail = messages.slice(-max)
+  const start = tail.findIndex((m) => m.role === 'user')
+  return start < 0 ? [] : tail.slice(start)
+}

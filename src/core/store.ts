@@ -20,7 +20,6 @@ interface DawState {
   undo: () => void
   redo: () => void
   select: (id: string | null) => void
-  load: (project: Project) => void
 }
 
 function loadSaved(): Project {
@@ -70,9 +69,6 @@ export const useDaw = create<DawState>((set, get) => ({
   },
 
   select: (id) => set({ selectedChannelId: id }),
-
-  load: (project) =>
-    set((s) => ({ project, past: [...s.past, { project: s.project }], future: [], selectedChannelId: project.channels[0]?.id ?? null })),
 }))
 
 let saveTimer: ReturnType<typeof setTimeout> | undefined

@@ -1,4 +1,4 @@
-import { parseKeyRoot, parsePitch, midiToName } from './music'
+import { NOTE_NAMES, parseKeyRoot, parsePitch, midiToName } from './music'
 import {
   DRUM_SOUNDS,
   SCALES,
@@ -117,7 +117,7 @@ export function summarizeProject(p: Project) {
     swing: p.swing,
     bars: p.lengthSteps / STEPS_PER_BAR,
     lengthSteps: p.lengthSteps,
-    key: `${['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][p.keyRoot]} ${p.scale}`,
+    key: `${NOTE_NAMES[p.keyRoot]} ${p.scale}`,
     channels: p.channels.map(summarizeChannel),
   }
 }
@@ -286,7 +286,7 @@ export const COMMANDS: Command[] = [
     apply: (p, a) => {
       const ch = findChannel(p, a.channel)
       if (!Array.isArray(a.steps)) throw new Error('"steps" must be an array')
-      const steps: number[] = a.steps.map((s: unknown) => Math.round(num(s, 'step')))
+      const steps: number[] = [...new Set<number>(a.steps.map((s: unknown) => Math.round(num(s, 'step'))))]
       const notes = buildNotes(
         p,
         steps.map((s, i) => ({ start: s, length: 1, velocity: a.velocities?.[i] ?? 0.85 })),

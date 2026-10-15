@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { engine } from '../audio'
 import { MicRecorder } from '../audio/recorder'
-import { runAgent, type AgentSettings, type ChatMessage } from '../ai/agent'
+import { runAgent, trimHistory, type AgentSettings, type ChatMessage } from '../ai/agent'
 import { detectHits, quantizeHits } from '../ai/beatbox'
 import { detectNotes, quantizeNotes, SOUND_CENTER } from '../ai/pitch'
 import { listen, speechSupported } from '../ai/speech'
@@ -68,7 +68,7 @@ export function AIPanel({ settings, onNeedSettings }: { settings: AgentSettings;
       )
       const last = out[out.length - 1]
       if (last?.content) add({ kind: 'ai', text: last.content })
-      setHistory(out.slice(-30)) // keep context bounded
+      setHistory(trimHistory(out))
     } catch (e) {
       if ((e as Error).name !== 'AbortError') add({ kind: 'error', text: (e as Error).message })
     } finally {
@@ -184,7 +184,7 @@ function VoiceCapture({ onLog }: { onLog: (e: LogEntry) => void }) {
   const synths = project.channels.filter((c) => c.type === 'synth')
   const [target, setTarget] = useState<string>('')
   const selectedSynth = synths.find((c) => c.id === selectedId)
-  const targetId = target || selectedSynth?.id || synths[0]?.id || 'new'
+  const targetId = target === 'new' || synths.some((c) => c.id === target) ? target : (selectedSynth?.id ?? synths[0]?.id ?? 'new')
 
   useAnimation(() => setLevel(rec.current ? rec.current.level() : 0))
 
@@ -220,23 +220,23 @@ function VoiceCapture({ onLog }: { onLog: (e: LogEntry) => void }) {
   function humToNotes(samples: Float32Array, sampleRate: number, p: Project) {
     const detected = detectNotes(samples, sampleRate)
     if (!detected.length) return onLog({ kind: 'error', text: 'No notes heard. Hum louder, closer to the mic, with clear "da da" attacks.' })
-    const { run } = useDaw.getState()
-    const group = newId('hum')
-    let channelId = targetId
-    if (channelId === 'new') channelId = (run('add_channel', { name: 'Voice Lead', type: 'synth', sound: 'lead' }, { group }) as { id: string }).id
-    const channel = useDaw.getState().project.channels.find((c) => c.id === channelId)!
+    const existing = p.channels.find((c) => c.id === targetId)
     const notes = quantizeNotes(detected, {
       bpm: p.bpm,
       lengthSteps: p.lengthSteps,
       keyRoot: p.keyRoot,
       scale: p.scale,
       snapToKey: snapKey,
-      targetCenter: SOUND_CENTER[channel.sound],
+      targetCenter: SOUND_CENTER[existing?.sound ?? 'lead'],
       alignFirst: !withLoop,
     })
+    if (!notes.length) return onLog({ kind: 'error', text: 'Your notes fell outside the pattern. Start humming right after you press record.' })
+    const { run } = useDaw.getState()
+    const group = newId('hum')
+    const channelId = existing?.id ?? (run('add_channel', { name: 'Voice Lead', type: 'synth', sound: 'lead' }, { group }) as { id: string }).id
     run('add_notes', { channel: channelId, notes, replace: true }, { group })
     useDaw.getState().select(channelId)
-    onLog({ kind: 'ai', text: `Heard ${notes.length} notes → ${channel.name}. Ctrl+Z to undo.` })
+    onLog({ kind: 'ai', text: `Heard ${notes.length} notes → ${existing?.name ?? 'Voice Lead'}. Ctrl+Z to undo.` })
   }
 
   function beatboxToDrums(samples: Float32Array, sampleRate: number, p: Project) {

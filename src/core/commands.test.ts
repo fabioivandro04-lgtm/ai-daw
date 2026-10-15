@@ -67,6 +67,11 @@ describe('commands', () => {
     expect(p.channels.every((c) => c.notes.every((n) => n.start < 16))).toBe(true)
   })
 
+  it('ignores repeated drum steps', () => {
+    const p = applyCommand(demoProject(), 'set_drum_steps', { channel: 'Kick', steps: [0, 0, 4] }).project
+    expect(p.channels[0].notes.map((n) => n.start)).toEqual([0, 4])
+  })
+
   it('toggles single steps', () => {
     let p = demoProject()
     p = applyCommand(p, 'toggle_step', { channel: 'Kick', step: 2 }).project
