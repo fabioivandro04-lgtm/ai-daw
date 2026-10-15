@@ -94,7 +94,9 @@ export async function runAgent(
     const msg = data.choices?.[0]?.message
     if (!msg) throw new Error('OpenRouter returned no message')
 
-    const reply: ChatMessage = { role: 'assistant', content: msg.content ?? null }
+    // Some providers return content as an array of parts instead of a string.
+    const content = Array.isArray(msg.content) ? msg.content.map((p: { text?: string }) => p.text ?? '').join('') : msg.content
+    const reply: ChatMessage = { role: 'assistant', content: content || null }
     if (msg.tool_calls?.length) reply.tool_calls = msg.tool_calls
     messages.push(reply)
     if (!reply.tool_calls) return messages

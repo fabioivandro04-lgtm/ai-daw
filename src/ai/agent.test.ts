@@ -66,6 +66,19 @@ describe('runAgent', () => {
   })
 })
 
+describe('runAgent replies', () => {
+  it('turns content given as an array of parts into text', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(reply({ content: [{ type: 'text', text: 'Hi ' }, { type: 'text', text: 'there' }] })))
+    const out = await runAgent([{ role: 'user', content: 'x' }], { apiKey: 'k', model: 'm' }, {
+      getProject: demoProject,
+      run: () => null,
+      play: () => {},
+      stop: () => {},
+    })
+    expect(out.at(-1)).toEqual({ role: 'assistant', content: 'Hi there' })
+  })
+})
+
 describe('trimHistory', () => {
   it('never starts with a tool result whose call was cut off', () => {
     const turn = (n: number): ChatMessage[] => [
